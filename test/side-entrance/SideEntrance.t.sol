@@ -3,7 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test, console} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 import {SideEntranceLenderPool} from "../../src/side-entrance/SideEntranceLenderPool.sol";
+import {AttackSideEntranceLenderPool} from "../../src/side-entrance/AttackSideEntranceLenderPool.sol";
 
 contract SideEntranceChallenge is Test {
     address deployer = makeAddr("deployer");
@@ -14,6 +16,7 @@ contract SideEntranceChallenge is Test {
     uint256 constant PLAYER_INITIAL_ETH_BALANCE = 1e18;
 
     SideEntranceLenderPool pool;
+    AttackSideEntranceLenderPool attackContract;
 
     modifier checkSolvedByPlayer() {
         vm.startPrank(player, player);
@@ -28,6 +31,7 @@ contract SideEntranceChallenge is Test {
     function setUp() public {
         startHoax(deployer);
         pool = new SideEntranceLenderPool();
+        attackContract = new AttackSideEntranceLenderPool(address(pool), recovery);
         pool.deposit{value: ETHER_IN_POOL}();
         vm.deal(player, PLAYER_INITIAL_ETH_BALANCE);
         vm.stopPrank();
@@ -45,8 +49,11 @@ contract SideEntranceChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_sideEntrance() public checkSolvedByPlayer {
-        
+        attackContract.attack();
     }
+
+    receive() external payable {}
+    fallback() external payable {}
 
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
